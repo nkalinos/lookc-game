@@ -10,14 +10,25 @@ body {
 }
 
 #scoreBoard {
-    display: flex;             /* Use flexbox layout */
-    justify-content: space-around;  /* Evenly space children */
-    align-items: center;       /* Center items vertically */
-    width: 45%; /* Span full width of the screen */
-    background-color: #333;    /* Optional: give the scoreboard a different background */
-    color: #fff;               /* White text for contrast */
-    padding: 20px;             /* Some padding around the content */
-    font-size: 1.2em;          /* Increase font size for readability */
+    display: flex;
+    justify-content: space-around; /* or space-between if you prefer */
+    align-items: center;
+    width: 100%;
+    background-color: #333;
+    color: #fff;
+    padding: 10px;
+    font-size: 1.2em;
+    box-sizing: border-box;
+}
+
+/* Mobile tweak: if you need to adjust spacing or font-size on smaller screens */
+@media only screen and (max-width: 600px) {
+    #scoreBoard {
+        flex-direction: row;
+        justify-content: space-around;  /* evenly space items */
+        font-size: 1em;
+        padding: 8px;
+    }
 }
 
 /* Start Screen overlay styling */
@@ -27,23 +38,28 @@ body {
     left: 0;
     width: 100%;
     height: 100%;
-    background: #222;
+    background-color: #222; /* or your preferred background color */
     color: #fff;
     display: flex;
     flex-direction: column;
-    justify-content: center;
-    align-items: center;
-    z-index: 2000; /* make sure it's on top */
+    justify-content: center; /* centers vertically */
+    align-items: center;     /* centers horizontally */
+    text-align: center;
+    z-index: 1000;           /* make sure it's on top */
 }
 
 #startScreen h1 {
-    font-size: 2.5em;
+    font-size: 2.5em;       /* adjust for mobile as needed */
     margin-bottom: 20px;
 }
 
 #startScreen button {
     font-size: 1.2em;
-    padding: 10px 20px;
+    padding: 12px 24px;
+    border: none;
+    border-radius: 5px;
+    background-color: #fff;
+    color: #333;
     cursor: pointer;
 }
 

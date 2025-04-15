@@ -3,13 +3,12 @@ const bgMusic = new Audio('assets/audio/lookchine.mp3');
 bgMusic.loop = true;       // Loop the music indefinitely
 bgMusic.volume = 0.5;      // Adjust volume if needed (range: 0.0 to 1.0)
 
-// Start background music on first user interaction is now handled inside startGame()
-
 // Global variables for level and scoring
 let currentLevel = 0;
 let totalScore = 0;
 let currentExplodedCount = 0;  // Count of exploded dots this level
 let chainActive = false;       // True when a chain reaction is in progress
+let globalScaleFactor = 1;     // defaults to 1 at design size (800px width)
 
 // Level configurations: each object has the total dots and the minimum required explosion count.
 const levels = [
@@ -43,7 +42,7 @@ class Dot {
         // dx and dy are now in pixels per second
         this.dx = dx;
         this.dy = dy;
-        this.radius = 15;
+        this.radius = 15; // base radius; will be scaled later
         this.color = color;
         this.exploded = false;
     }
@@ -81,22 +80,22 @@ explosionSounds.forEach(sound => {
     sound.preload = 'auto';
 });
 
-// Explosion class for the chain reaction effect - using easing for smooth behavior
+// Explosion class for the chain reaction effect – using easing for smooth behavior
 class Explosion {
     constructor(x, y, color) {
         this.x = x;
         this.y = y;
-        this.maxRadius = 65;
+        this.baseMaxRadius = 65; // base value at design size
+        this.maxRadius = this.baseMaxRadius * globalScaleFactor;
         this.radius = 0;
         this.color = color;
         this.state = "expanding"; // "expanding", "hanging", "shrinking"
 
-        // Adjusted durations for a faster explosion animation
-        this.expansionDuration = 1100; // 1.2 seconds to expand
-        this.hangDuration = 850; // 0.8 seconds to hang
-        this.deflationDuration = 500; // 0.5 seconds to deflate
+        // Adjusted durations in milliseconds for a faster explosion animation
+        this.expansionDuration = 1100;
+        this.hangDuration = 850;
+        this.deflationDuration = 500;
 
-        // Timers for each phase
         this.expansionTime = 0;
         this.hangTime = 0;
         this.deflationTime = 0;
@@ -153,13 +152,17 @@ function restartLevel() {
     updateScoreBoard(); // Refresh scoreboard display
 }
 
-// Initialize dots based on current level
+// Initialize dots based on the current level
 function initDots() {
     dots = [];
     const numDots = levels[currentLevel].dotsCount;
-    // Set velocities in pixels per second
-    const minSpeed = 45;
-    const maxSpeed = 115;
+    // Base speeds in pixels per second for desktop
+    const baseMinSpeed = 50;
+    const baseMaxSpeed = 200;
+    // Scale speeds with globalScaleFactor for mobile (if globalScaleFactor < 1, speeds slow down)
+    const minSpeed = baseMinSpeed * globalScaleFactor;
+    const maxSpeed = baseMaxSpeed * globalScaleFactor;
+
     for (let i = 0; i < numDots; i++) {
         const x = Math.random() * canvas.width;
         const y = Math.random() * canvas.height;
@@ -168,7 +171,10 @@ function initDots() {
         const dx = Math.cos(angle) * speed;
         const dy = Math.sin(angle) * speed;
         const color = `hsl(${Math.random() * 360}, 100%, 50%)`;
-        dots.push(new Dot(x, y, dx, dy, color));
+        const dot = new Dot(x, y, dx, dy, color);
+        // Scale the dot radius with globalScaleFactor
+        dot.radius = 15 * globalScaleFactor;
+        dots.push(dot);
     }
 }
 
@@ -178,12 +184,13 @@ function checkCollisions() {
         if (!dot.exploded) {
             explosions.forEach(explosion => {
                 const dist = Math.hypot(dot.x - explosion.x, dot.y - explosion.y);
+                // Collision if distance is less than or equal to the sum of radii
                 if (dist <= explosion.radius + dot.radius) {
                     dot.exploded = true;
-                    currentExplodedCount++;  // Increment level's explosion count
+                    currentExplodedCount++;
                     explosions.push(new Explosion(dot.x, dot.y, dot.color));
 
-                    // Play a random explosion sound effect:
+                    // Play a random explosion sound effect
                     const randomIndex = Math.floor(Math.random() * explosionSounds.length);
                     const explosionSound = explosionSounds[randomIndex].cloneNode();
                     explosionSound.volume = 0.3;
@@ -294,58 +301,48 @@ document.getElementById('nextLevelButton').addEventListener('click', function() 
 // Start the chain reaction on canvas click
 canvas.addEventListener('click', function(event) {
     if (chainActive) return;
-
     const rect = canvas.getBoundingClientRect();
     const x = event.clientX - rect.left;
     const y = event.clientY - rect.top;
-
     chainActive = true;
     explosions.push(new Explosion(x, y, 'white'));
-
     const randomIndex = Math.floor(Math.random() * explosionSounds.length);
     const noteSound = explosionSounds[randomIndex].cloneNode();
     noteSound.volume = 0.3;
     noteSound.play();
 });
 
+// Resize canvas and update global scale factor
 function resizeCanvas() {
-    // Set a maximum design width and calculate the new width
-    const maxWidth = 800; // your original design width
+    const maxWidth = 800; // design width
     let newWidth = window.innerWidth;
-    if (newWidth > maxWidth) {
-        newWidth = maxWidth;
-    }
-
-    // Set canvas dimensions maintaining your aspect ratio (800×600)
+    if (newWidth > maxWidth) newWidth = maxWidth;
     canvas.width = newWidth;
-    canvas.height = newWidth * (600 / 800); // maintain the 4:3 aspect ratio
+    canvas.height = newWidth * (600 / 800); // maintain aspect ratio
+    globalScaleFactor = newWidth / maxWidth;
 
-    // Calculate a scale factor based on the new width vs. the original width
-    const scaleFactor = newWidth / maxWidth;
-
-    // Update all current dots' radii based on the scale factor
+    // Update existing dots' radii
     dots.forEach(dot => {
-        // Assuming the original dot radius is 15 in your design,
-        // scale it down proportionally for smaller screens.
-        dot.radius = 15 * scaleFactor;
+        dot.radius = 15 * globalScaleFactor;
+    });
+
+    // Update explosions in progress: update maxRadius if they have a base value
+    explosions.forEach(explosion => {
+        explosion.maxRadius = explosion.baseMaxRadius
+            ? explosion.baseMaxRadius * globalScaleFactor
+            : 65 * globalScaleFactor;
     });
 }
 
-// Call resizeCanvas on page load and when the window resizes
 window.addEventListener('resize', resizeCanvas);
 window.addEventListener('load', resizeCanvas);
 
 // Function to start the game
 function startGame() {
-    // Hide the start screen overlay
     document.getElementById('startScreen').style.display = 'none';
-
-    // Start background music
     bgMusic.play().catch(err => {
         console.log("Background music play failed:", err);
     });
-
-    // Initialize dots and start the animation loop
     initDots();
     lastTime = null;
     requestAnimationFrame(update);
