@@ -1,0 +1,84 @@
+/* Existing styles ... */
+body {
+    margin: 0;
+    padding: 0;
+    display: flex;
+    flex-direction: column;  /* Changed to column for the scoreboard on top */
+    align-items: center;
+    background-color: #222;
+    font-family: sans-serif;
+}
+
+#scoreBoard {
+    display: flex;             /* Use flexbox layout */
+    justify-content: space-around;  /* Evenly space children */
+    align-items: center;       /* Center items vertically */
+    width: 45%; /* Span full width of the screen */
+    background-color: #333;    /* Optional: give the scoreboard a different background */
+    color: #fff;               /* White text for contrast */
+    padding: 20px;             /* Some padding around the content */
+    font-size: 1.2em;          /* Increase font size for readability */
+}
+
+/* Start Screen overlay styling */
+#startScreen {
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    background: #222;
+    color: #fff;
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+    align-items: center;
+    z-index: 2000; /* make sure it's on top */
+}
+
+#startScreen h1 {
+    font-size: 2.5em;
+    margin-bottom: 20px;
+}
+
+#startScreen button {
+    font-size: 1.2em;
+    padding: 10px 20px;
+    cursor: pointer;
+}
+
+canvas {
+    border: 1px solid #fff;
+}
+
+/* Popup overlay styles */
+#popupOverlay {
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    background: rgba(0, 0, 0, 0.7); /* semi-transparent background */
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    z-index: 1000;
+}
+
+#popupContent {
+    background: #fff;
+    padding: 20px 40px;
+    border-radius: 8px;
+    text-align: center;
+}
+
+#popupContent p {
+    font-size: 1.2em;
+    margin-bottom: 20px;
+}
+
+#nextLevelButton {
+    padding: 10px 20px;
+    font-size: 1em;
+    cursor: pointer;
+}

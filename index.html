@@ -1,0 +1,36 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>LookChine</title>
+    <link rel="stylesheet" href="style.css">
+</head>
+<body>
+<!-- Start Screen Overlay -->
+<div id="startScreen">
+    <h1>Welcome to LookSchine</h1>
+    <button id="startBtn">Start</button>
+</div>
+
+<!-- Scoreboard -->
+<div id="scoreBoard">
+    <span id="score">Score: 0</span>
+    <span id="level">Level: 1</span>
+    <span id="points">Points: 0/1 from 5</span>
+</div>
+
+<!-- Canvas element for the game -->
+<canvas id="gameCanvas" width="800" height="600"></canvas>
+
+<!-- Popup overlay for level complete (already in your code) -->
+<div id="popupOverlay" style="display: none;">
+    <div id="popupContent">
+        <p id="popupMessage"></p>
+        <button id="nextLevelButton">Next Level</button>
+    </div>
+</div>
+
+<script src="main.js"></script>
+</body>
+</html>
