@@ -308,6 +308,33 @@ canvas.addEventListener('click', function(event) {
     noteSound.play();
 });
 
+function resizeCanvas() {
+    // Set a maximum design width and calculate the new width
+    const maxWidth = 800; // your original design width
+    let newWidth = window.innerWidth;
+    if (newWidth > maxWidth) {
+        newWidth = maxWidth;
+    }
+
+    // Set canvas dimensions maintaining your aspect ratio (800×600)
+    canvas.width = newWidth;
+    canvas.height = newWidth * (600 / 800); // maintain the 4:3 aspect ratio
+
+    // Calculate a scale factor based on the new width vs. the original width
+    const scaleFactor = newWidth / maxWidth;
+
+    // Update all current dots' radii based on the scale factor
+    dots.forEach(dot => {
+        // Assuming the original dot radius is 15 in your design,
+        // scale it down proportionally for smaller screens.
+        dot.radius = 15 * scaleFactor;
+    });
+}
+
+// Call resizeCanvas on page load and when the window resizes
+window.addEventListener('resize', resizeCanvas);
+window.addEventListener('load', resizeCanvas);
+
 // Function to start the game
 function startGame() {
     // Hide the start screen overlay
