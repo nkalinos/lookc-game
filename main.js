@@ -1,23 +1,44 @@
 // main.js
 
-// 1. Background Music
+// 1. Background Music (HTMLAudio can stay for music)
 const bgMusic = new Audio('assets/audio/lookchine.mp3');
 bgMusic.loop   = true;
 bgMusic.volume = 0.5;
 
-// 2. Preload Explosion Sounds
-const explosionSounds = [
-    'fsharp','gsharp','asharp','csharp','dsharp','gsharphigh','asharphigh'
-].map(name => {
-    const a = new Audio(`assets/audio/${name}.mp3`);
-    a.preload = 'auto';
-    return a;
-});
+// 2. Web Audio setup for SFX
+const audioCtx   = new (window.AudioContext || window.webkitAudioContext)();
+const sfxNames   = ['fsharp','gsharp','asharp','csharp','dsharp','gsharphigh','asharphigh'];
+let   sfxBuffers = [];
+
+// Load & decode all SFX once at startup
+async function loadSfx() {
+    const promises = sfxNames.map(async name => {
+        const resp  = await fetch(`assets/audio/${name}.mp3`);
+        const data  = await resp.arrayBuffer();
+        return await audioCtx.decodeAudioData(data);
+    });
+    sfxBuffers = await Promise.all(promises);
+}
+loadSfx();  // start loading immediately
+
+// Play one random explosion buffer
+let activeVoices = 0, MAX_VOICES = 12;
+function playExplosionSound() {
+    if (!sfxBuffers.length || activeVoices >= MAX_VOICES) return;
+    const idx = Math.floor(Math.random()*sfxBuffers.length);
+    const buf = sfxBuffers[idx];
+    const src = audioCtx.createBufferSource();
+    src.buffer = buf;
+    src.connect(audioCtx.destination);
+    activeVoices++;
+    src.onended = () => activeVoices--;
+    src.start();
+}
 
 // 3. Configs
 const desktopConfig = {
-    dotRadius: 13, explosionRadius: 60,
-    minSpeed: 40,  maxSpeed: 150,
+    dotRadius:       13, explosionRadius: 60,
+    minSpeed:        40, maxSpeed:       150,
     levelRules: [
         {dotsCount:5, goal:1},{dotsCount:10,goal:2},
         {dotsCount:15,goal:3},{dotsCount:20,goal:5},
@@ -28,8 +49,8 @@ const desktopConfig = {
     ]
 };
 const mobileConfig = {
-    dotRadius:12, explosionRadius:50,
-    minSpeed:30,  maxSpeed:110,
+    dotRadius:       12, explosionRadius: 50,
+    minSpeed:        30, maxSpeed:      110,
     levelRules: [
         {dotsCount:4, goal:1},{dotsCount:8, goal:2},
         {dotsCount:12,goal:2},{dotsCount:16,goal:4},
@@ -53,13 +74,14 @@ const canvas = document.getElementById('gameCanvas'),
     ctx    = canvas.getContext('2d');
 
 // 6. Storage
-let dots = [], explosions = [];
+let dots       = [],
+    explosions = [];
 
 // 7. Dot
 class Dot {
     constructor(x,y,dx,dy,color){
-        this.x        = x;  this.y        = y;
-        this.dx       = dx; this.dy       = dy;
+        this.x        = x;  this.y = y;
+        this.dx       = dx; this.dy = dy;
         this.baseR    = cfg.dotRadius;
         this.radius   = this.baseR * globalScale;
         this.color    = color;
@@ -68,7 +90,7 @@ class Dot {
     update(dt){
         this.x += this.dx*(dt/1000);
         this.y += this.dy*(dt/1000);
-        // bounce+clamp
+        // bounce + clamp
         if(this.x-this.radius<0){
             this.x=this.radius; this.dx=Math.abs(this.dx);
         } else if(this.x+this.radius>canvas.width){
@@ -93,11 +115,10 @@ class Explosion {
         this.x      = x;   this.y    = y;
         this.baseR  = cfg.explosionRadius;
         this.maxR   = this.baseR * globalScale;
-        this.radius = 0;
-        this.color  = color;
+        this.radius = 0;   this.color = color;
         this.state  = 'expanding';
         this.expD   = 1100; this.hangD = 850; this.defD = 500;
-        this.eT = 0; this.hT = 0; this.dT = 0;
+        this.eT=0; this.hT=0; this.dT=0;
     }
     easeOut(t){ return t*(2-t) }
     easeIn(t){ return t*t }
@@ -114,7 +135,7 @@ class Explosion {
         else {
             this.dT+=dt; let p=this.dT/this.defD; if(p>1)p=1;
             this.radius=this.maxR*(1-this.easeIn(p));
-            if(p===1){ this.radius=0; return false }
+            if(p===1){ this.radius=0; return false; }
         }
         return true;
     }
@@ -131,22 +152,23 @@ function initDots(){
     const rule = cfg.levelRules[currentLevel];
     dots = []; explosions = [];
     const m = cfg.dotRadius * globalScale;
-
     for(let i=0;i<rule.dotsCount;i++){
         const x = Math.random()*(canvas.width-2*m)+m;
         const y = Math.random()*(canvas.height-2*m)+m;
         const a = Math.random()*Math.PI*2;
         const s = Math.random()*(cfg.maxSpeed-cfg.minSpeed)+cfg.minSpeed;
-        dots.push(new Dot(x,y,Math.cos(a)*s,Math.sin(a)*s,
-            `hsl(${Math.random()*360},100%,50%)`));
+        dots.push(new Dot(
+            x,y,Math.cos(a)*s,Math.sin(a)*s,
+            `hsl(${Math.random()*360},100%,50%)`
+        ));
     }
     updateScoreboard();
 }
 
 function updateScoreboard(){
     const rule = cfg.levelRules[currentLevel];
-    document.getElementById('score').innerText = `Score: ${totalScore}`;
-    document.getElementById('level').innerText = `Level: ${currentLevel+1}`;
+    document.getElementById('score').innerText  = `Score: ${totalScore}`;
+    document.getElementById('level').innerText  = `Level: ${currentLevel+1}`;
     document.getElementById('points').innerText =
         `Points: ${explodedThisLevel}/${rule.goal} from ${rule.dotsCount}`;
 }
@@ -154,26 +176,22 @@ function updateScoreboard(){
 // 10. Flow
 function nextLevel(){
     currentLevel++;
-    // — final?
-    if(currentLevel >= cfg.levelRules.length){
-        // show popup instead of alert:
+    if(currentLevel>=cfg.levelRules.length){
         showFinalPopup();
     } else {
-        explodedThisLevel = 0;
-        chainActive       = false;
+        explodedThisLevel=0;
+        chainActive=false;
         initDots();
     }
 }
 function restartLevel(){
-    explodedThisLevel = 0;
-    chainActive       = false;
+    explodedThisLevel=0;
+    chainActive=false;
     initDots();
 }
 function resetGame(){
-    currentLevel       = 0;
-    totalScore         = 0;
-    explodedThisLevel  = 0;
-    chainActive        = false;
+    currentLevel=0; totalScore=0;
+    explodedThisLevel=0; chainActive=false;
     initDots();
 }
 
@@ -187,10 +205,7 @@ function checkCollisions(){
                 d.exploded = true;
                 explodedThisLevel++;
                 explosions.push(new Explosion(d.x,d.y,d.color));
-                const s = explosionSounds[
-                    Math.floor(Math.random()*explosionSounds.length)
-                    ].cloneNode();
-                s.volume = 0.3; s.play();
+                playExplosionSound();
                 break;
             }
         }
@@ -201,23 +216,22 @@ function checkCollisions(){
 // 12. Main Loop
 let lastTS = null;
 function update(ts){
-    if(!lastTS) lastTS = ts;
-    const dt = ts - lastTS; lastTS = ts;
-
+    if(!lastTS) lastTS=ts;
+    const dt=ts-lastTS; lastTS=ts;
     ctx.clearRect(0,0,canvas.width,canvas.height);
+
     dots.forEach(d=>{ d.update(dt); d.draw(); });
     explosions = explosions.filter(ex=>{ const ok=ex.update(dt); ex.draw(); return ok; });
     checkCollisions();
 
     if(chainActive && explosions.length===0){
-        chainActive = false;
-        const rule = cfg.levelRules[currentLevel];
-        if(explodedThisLevel >= rule.goal){
-            totalScore += explodedThisLevel;
-            // normal “level complete”:
-            setTimeout(()=> showLevelPopup(), 500);
+        chainActive=false;
+        const rule=cfg.levelRules[currentLevel];
+        if(explodedThisLevel>=rule.goal){
+            totalScore+=explodedThisLevel;
+            setTimeout(showLevelPopup, 500);
         } else {
-            setTimeout(()=>{ alert(`Try again: ${explodedThisLevel}/${rule.goal}`); restartLevel(); }, 500);
+            setTimeout(()=>{ alert(`Try again: ${explodedThisLevel}/${rule.goal}`); restartLevel(); },500);
         }
     }
 
@@ -225,77 +239,63 @@ function update(ts){
     requestAnimationFrame(update);
 }
 
-// 13. Popup & Input
+// 13. Popup & input
 function showLevelPopup(){
-    // button reads “Next Level”
-    document.getElementById('nextLevelButton').innerText = 'Next Level';
+    document.getElementById('nextLevelButton').innerText='Next Level';
     document.getElementById('popupMessage').innerText =
-        `Level ${currentLevel+1} complete!\n` +
-        `You got ${explodedThisLevel} (min ${cfg.levelRules[currentLevel].goal}).\n` +
+        `Level ${currentLevel+1} complete!\n`+
+        `You got ${explodedThisLevel} (min ${cfg.levelRules[currentLevel].goal}).\n`+
         `Total Score: ${totalScore}`;
-    document.getElementById('popupOverlay').style.display = 'flex';
+    document.getElementById('popupOverlay').style.display='flex';
 }
 function showFinalPopup(){
-    // button reads “Play Again”
-    document.getElementById('nextLevelButton').innerText = 'Play Again';
+    document.getElementById('nextLevelButton').innerText='Play Again';
     document.getElementById('popupMessage').innerText =
-        `CONGRATULATIONS!\n` +
-        `You finished all levels!\n` +
-        `Final Score: ${totalScore}`;
-    document.getElementById('popupOverlay').style.display = 'flex';
+        `CONGRATULATIONS!\nYou finished all levels!\nFinal Score: ${totalScore}`;
+    document.getElementById('popupOverlay').style.display='flex';
 }
 function hidePopup(){
-    document.getElementById('popupOverlay').style.display = 'none';
+    document.getElementById('popupOverlay').style.display='none';
 }
 
-// clicking the popup button:
 document.getElementById('nextLevelButton')
     .addEventListener('click', ()=>{
         hidePopup();
-        // if we were on the final “Play Again” popup, cfg.levelRules.length <= currentLevel
-        if(currentLevel >= cfg.levelRules.length) {
-            resetGame();
-        } else {
-            nextLevel();
-        }
+        if(currentLevel >= cfg.levelRules.length) resetGame();
+        else nextLevel();
     });
 
-// canvas click to start chain
 canvas.addEventListener('click', e=>{
     if(chainActive) return;
-    chainActive = true;
-    const r = canvas.getBoundingClientRect();
-    const x = e.clientX - r.left,
-        y = e.clientY - r.top;
+    chainActive=true;
+    const r=canvas.getBoundingClientRect(),
+        x=e.clientX-r.left, y=e.clientY-r.top;
     explosions.push(new Explosion(x,y,'white'));
-    // play a click note
-    const note = explosionSounds[
-        Math.floor(Math.random()*explosionSounds.length)
-        ].cloneNode();
-    note.volume = 0.3; note.play();
+    // start audioCtx on first user gesture
+    if(audioCtx.state==='suspended') audioCtx.resume();
+    playExplosionSound();
 });
 
-// 14. Responsive Canvas (internal resolution only)
+// 14. Responsive Canvas
 function resizeCanvas(){
-    const MAX = 800;
-    let w = window.innerWidth; if(w>MAX) w=MAX;
-    let h = w * (600/800);
-    canvas.width  = w;
-    canvas.height = h;
-    globalScale = w / MAX;
+    const MAX=800;
+    let w=window.innerWidth; if(w>MAX) w=MAX;
+    let h=w*(600/800);
+    canvas.width=w; canvas.height=h;
+    globalScale=w/MAX;
 }
-window.addEventListener('load',   resizeCanvas);
-window.addEventListener('resize', resizeCanvas);
+window.addEventListener('load',resizeCanvas);
+window.addEventListener('resize',resizeCanvas);
 
 // 15. Start Game
 function startGame(){
-    cfg           = (window.innerWidth < 600 ? mobileConfig : desktopConfig);
-    document.getElementById('startScreen').style.display = 'none';
+    cfg = window.innerWidth<600 ? mobileConfig : desktopConfig;
+    document.getElementById('startScreen').style.display='none';
+    if(audioCtx.state==='suspended') audioCtx.resume();
     bgMusic.play().catch(_=>{});
-    explodedThisLevel = 0;
-    chainActive       = false;
+    explodedThisLevel=0; chainActive=false;
     initDots();
-    lastTS = null;
+    lastTS=null;
     requestAnimationFrame(update);
 }
 document.getElementById('startBtn')
